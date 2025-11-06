@@ -8,28 +8,38 @@ import net.named_data.jndn.Name;
 import net.named_data.jndn.OnInterestCallback;
 import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.security.KeyChain;
-import net.named_data.jndn.security.identity.IdentityManager;
-import net.named_data.jndn.security.identity.MemoryIdentityStorage;
-import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
-import net.named_data.jndn.security.policy.SelfVerifyPolicyManager;
+
+import net.named_data.jndn.security.pib.PibIdentity;
 import net.named_data.jndn.util.Blob;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service; 
 
 @Slf4j
 @Service
 public class NDNServer {
+
+    @Value("${app.ndn.pib.path}")
+    private static String pibPath;
+
+    @Value("${app.ndn.tpm.path}")
+    private static String tpmPath;
+
+    @Value("${app.ndn.default.identity}")
+    private static String ndnIdentity;
+    
     public static void main(String[] args) {
         Face face = new Face("localhost", 6363);
-        MemoryIdentityStorage memoryIdentityStorage = new MemoryIdentityStorage();
-        MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage();
 
-        KeyChain keyChain = new KeyChain(new IdentityManager(memoryIdentityStorage, privateKeyStorage), 
-        new SelfVerifyPolicyManager(memoryIdentityStorage));
         
         try {
+            KeyChain keyChain = new KeyChain(pibPath, tpmPath); 
+            Name identityName = new Name("/yao/test/demo/B");
+            PibIdentity identity = keyChain.getPib().getIdentity(identityName);
+            keyChain.setDefaultIdentity(identity);
             face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());  
-            Name prefix = new Name("/yao/test/demo/B");
-            face.registerPrefix(prefix, new OnInterestCallback() {
+
+            face.registerPrefix(identityName, new OnInterestCallback() {
                 @Override
                 public void onInterest(Name n, Interest i, Face f, long interestFilterId, InterestFilter filter) {
                     try {
