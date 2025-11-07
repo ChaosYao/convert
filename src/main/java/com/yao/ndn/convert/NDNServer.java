@@ -13,8 +13,13 @@ import net.named_data.jndn.security.KeyChain;
 import net.named_data.jndn.security.pib.PibIdentity;
 import net.named_data.jndn.util.Blob;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service; 
+import org.springframework.stereotype.Service;
+
+import jakarta.annotation.PreDestroy;
 
 @Slf4j
 @Service
@@ -28,49 +33,61 @@ public class NDNServer {
 
     @Value("${app.ndn.default.identity}")
     private String defaultIdentity;
-    
-    public void init(){
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    private volatile boolean running = true;
+
+    public void init() {
         Face face = new Face("localhost", 6363);
-        
-        try {
-            KeyChain keyChain = new KeyChain(pibPath, tpmPath); 
-            Name identityName = new Name(defaultIdentity);
-            PibIdentity identity = keyChain.getPib().getIdentity(identityName);
-            keyChain.setDefaultIdentity(identity);
-            face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());  
+        executor.submit(() -> {
+            try {
+                KeyChain keyChain = new KeyChain(pibPath, tpmPath);
+                Name identityName = new Name(defaultIdentity);
+                PibIdentity identity = keyChain.getPib().getIdentity(identityName);
+                keyChain.setDefaultIdentity(identity);
+                face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
 
-            face.registerPrefix(identityName, new OnInterestCallback() {
-                @Override
-                public void onInterest(Name n, Interest i, Face f, long interestFilterId, InterestFilter filter) {
-                    try {
-                        log.info("Receive Interest: {}", i.getName().toUri());
-                        Name dataName = new Name(i.getName()).append("reply");
-                        Data data = new Data(dataName);
-                        data.setContent(new Blob("Congradulations!"));
-                        keyChain.sign(data);
+                face.registerPrefix(identityName, new OnInterestCallback() {
+                    @Override
+                    public void onInterest(Name n, Interest i, Face f, long interestFilterId, InterestFilter filter) {
+                        try {
+                            log.info("Receive Interest: {}", i.getName().toUri());
+                            Name dataName = new Name(i.getName()).append("reply");
+                            Data data = new Data(dataName);
+                            data.setContent(new Blob("Congradulations!"));
+                            keyChain.sign(data);
 
-                        face.putData(data);
-                        log.info("Send data");
+                            face.putData(data);
+                            log.info("Send data");
 
-                    } catch (Exception e) {
-                        log.error("Error handling interest", e);
+                        } catch (Exception e) {
+                            log.error("Error handling interest", e);
+                        }
                     }
-                }
-            }, new OnRegisterFailed() {
-                @Override
-                public void onRegisterFailed(Name p) {
-                    log.error("Failed to register prefix: {}", p.toUri());
-                }
+                }, new OnRegisterFailed() {
+                    @Override
+                    public void onRegisterFailed(Name p) {
+                        log.error("Failed to register prefix: {}", p.toUri());
+                    }
 
-            });
+                });
 
-            for(int i = 0; i< 50; i++) {
-                face.processEvents();
-                Thread.sleep(5);
+                while (running) {
+                    face.processEvents();
+                    Thread.sleep(5);
+                }
+            } catch (Exception e) {
+                log.error("Server loop stopped unexpectedly", e);
             }
+        });
 
-        } catch (Exception e) {
-            log.error("Server init failed", e);
-        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        log.info("🧹 Shutting down NDNServer...");
+        running = false;
+        executor.shutdownNow();
     }
 }
