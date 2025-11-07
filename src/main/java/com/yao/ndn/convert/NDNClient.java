@@ -6,7 +6,8 @@ import net.named_data.jndn.*;
 @Slf4j
 @Service
 public class NDNClient {
-    public static void main(String[] args) {
+    
+    public void init() {
         try {
             Interest reqInterest = new Interest(new Name("/yao/test/demo/B"));
             reqInterest.setCanBePrefix(true);
