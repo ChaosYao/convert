@@ -1,23 +1,33 @@
 package com.yao.ndn.convert;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import jakarta.annotation.PostConstruct;
 
 @SpringBootApplication
 public class ConvertApplication {
-	private static final Logger log = LoggerFactory.getLogger(ConvertApplication.class);
+
+	@Value("${app.ndn.mode}")
+	private String mode;
+
+	@Autowired
+	private NDNClient ndnClient;
+
+	@Autowired
+	private NDNServer ndnServer;
 	public static void main(String[] args) {
 		SpringApplication.run(ConvertApplication.class, args);
-		if (args.length < 1) {
-			log.error("Usage: java -jar demo.jar <client|server>");
-			System.exit(1);
-		}
-		if (args[0].equals("client")) {
-			NDNClient.main(args);
-		} else if (args[0].equals("server")) {
-			NDNServer.main(args);
+	}
+
+	@PostConstruct
+	private void init() {
+		if ("server".equals(mode)) {
+			ndnServer.init();
+		} else if ("client".equals(mode)) {
+			ndnClient.init();
 		}
 	}
 
