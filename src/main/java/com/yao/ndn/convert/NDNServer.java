@@ -18,10 +18,12 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class NDNServer {
- 
-    private static final String PIB_PATH = "pib-sqlite3:/root/.ndn/pib.db";
 
-    private static String TPM_PATH = "tpm-file:/root/.ndn/ndnsec-key-file";
+    @Value("${app.ndn.pib.path}")
+    private String pibPath;
+
+    @Value("${app.ndn.tpm.path}")
+    private String tpmPath;
 
     @Value("${app.ndn.default.identity}")
     private String defaultIdentity;
@@ -30,7 +32,7 @@ public class NDNServer {
         Face face = new Face("localhost", 6363);
         
         try {
-            KeyChain keyChain = new KeyChain(PIB_PATH, TPM_PATH); 
+            KeyChain keyChain = new KeyChain(pibPath, tpmPath); 
             Name identityName = new Name(defaultIdentity);
             PibIdentity identity = keyChain.getPib().getIdentity(identityName);
             keyChain.setDefaultIdentity(identity);
