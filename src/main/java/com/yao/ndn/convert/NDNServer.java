@@ -6,6 +6,7 @@ import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.OnInterestCallback;
+import net.named_data.jndn.OnRegisterFailed;
 import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.security.KeyChain;
 
@@ -55,7 +56,13 @@ public class NDNServer {
                         log.error("Error handling interest", e);
                     }
                 }
-            }, null);
+            }, new OnRegisterFailed() {
+                @Override
+                public void onRegisterFailed(Name p) {
+                    log.error("Failed to register prefix: {}", p.toUri());
+                }
+
+            });
 
             for(int i = 0; i< 50; i++) {
                 face.processEvents();
